@@ -17,6 +17,7 @@ import net.jodah.failsafe.Failsafe;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
 import org.zalando.failsafeactuator.service.CircuitBreakerRegistry;
+import org.zalando.failsafeactuator.service.FallbackRegistry;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -28,6 +29,7 @@ import java.util.concurrent.Callable;
 public class FailsafeBreakerAspect implements MethodInterceptor {
 
   private final CircuitBreakerRegistry circuitBreakerRegistry;
+  private final FallbackRegistry fallbackRegistry;
 
   public Object invoke(final MethodInvocation methodInvocation) throws Throwable {
     final Method method = methodInvocation.getMethod();
@@ -47,14 +49,25 @@ public class FailsafeBreakerAspect implements MethodInterceptor {
                        }
                      });
     } catch (RuntimeException e) {
-      final String fallbackMethodName = breaker.fallbackMethod();
-      if (!fallbackMethodName.isEmpty()) {
+      if(fallbackRegistry.fallbackIsRegistered(breaker.value(), breaker.fallbackMethod())) {
         try {
-          return executeFallback(methodInvocation, fallbackMethodName);
+          log.error("USING FALLBACK METHOD FROM ANNOTATION");
+          return fallbackRegistry.invokeFallback(breaker.value(), breaker.fallbackMethod(), methodInvocation.getArguments());
         } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException fallbackException) {
           throw fallbackException;
         } catch (Exception fallbackException) {
           log.debug("Fallback throws exception", fallbackException);
+        }
+      } else {
+        final String fallbackMethodName = breaker.fallbackMethod();
+        if (!fallbackMethodName.isEmpty()) {
+          try {
+            return executeFallback(methodInvocation, fallbackMethodName);
+          } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException fallbackException) {
+            throw fallbackException;
+          } catch (Exception fallbackException) {
+            log.debug("Fallback throws exception", fallbackException);
+          }
         }
       }
 

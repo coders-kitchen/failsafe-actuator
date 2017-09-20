@@ -10,30 +10,45 @@
  */
 package org.zalando.failsafeactuator.config;
 
+import com.fasterxml.jackson.core.Versioned;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.aop.Advisor;
 import org.springframework.aop.aspectj.AspectJExpressionPointcut;
 import org.springframework.aop.support.DefaultPointcutAdvisor;
+import org.springframework.beans.BeansException;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.zalando.failsafeactuator.aspect.FailsafeBreakerAspect;
+import org.zalando.failsafeactuator.aspect.FailsafeFallback;
 import org.zalando.failsafeactuator.service.CircuitBreakerRegistry;
+import org.zalando.failsafeactuator.service.FallbackRegistry;
+
+import java.lang.reflect.Method;
 
 @EnableAspectJAutoProxy
 @Configuration
 @Conditional(FailsafeAutoConfiguration.FailsafeCondition.class)
+@Slf4j
 public class FailsafeAspectAutoConfiguration {
 
   @Bean
   public FailsafeBreakerAspect failsafeBreakerAspect(CircuitBreakerRegistry circuitBreakerRegistry) {
-    return new FailsafeBreakerAspect(circuitBreakerRegistry);
+    return new FailsafeBreakerAspect(circuitBreakerRegistry, fallbackRegistry());
   }
 
   @Bean
   public Advisor failsafeBreakerPointcutAdvisor(FailsafeBreakerAspect failsafeBreakerAspect) {
     AspectJExpressionPointcut pointcut = new AspectJExpressionPointcut();
-    pointcut.setExpression("@annotation(org.zalando.failsafeactuator.service.FailsafeBreaker)");
+    pointcut.setExpression("@annotation(org.zalando.failsafeactuator.aspect.Failsafe)");
     return new DefaultPointcutAdvisor(pointcut, failsafeBreakerAspect);
+  }
+
+  @Bean
+  public FallbackRegistry fallbackRegistry() {
+    return new FallbackRegistry();
   }
 }

@@ -36,10 +36,10 @@ public class FailsafeInjectionConfiguration {
   @Bean
   @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
   public CircuitBreaker circuitBreaker(InjectionPoint ip) {
-    Failsafe annotation = null;
+    FailsafeBreaker annotation = null;
     for (Annotation a : ip.getAnnotations()) {
-      if (a instanceof Failsafe) {
-        annotation = (Failsafe) a;
+      if (a instanceof FailsafeBreaker) {
+        annotation = (FailsafeBreaker) a;
         break;
       }
     }

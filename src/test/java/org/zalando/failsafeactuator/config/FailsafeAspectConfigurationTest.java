@@ -19,6 +19,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.stereotype.Component;
 import org.springframework.test.context.junit4.SpringRunner;
+import org.zalando.failsafeactuator.aspect.FailsafeFallback;
 import org.zalando.failsafeactuator.config.FailsafeAspectConfigurationTest.FailsafeAutoConfigurationTestConfiguration.FailsafeBreakerMethodProtection;
 import org.zalando.failsafeactuator.aspect.Failsafe;
 
@@ -51,6 +52,20 @@ public class FailsafeAspectConfigurationTest {
       .hasMessageContaining("fallbackCalled");
   }
 
+  @Test
+  public void circuitBreakerWithExternalFailingFallback() throws Exception {
+    assertThatThrownBy(() -> methodProtection.withExternalFailingFallback("withFailingFallback"))
+      .isInstanceOf(NumberFormatException.class)
+      .hasMessageContaining("fallbackCalled");
+  }
+
+  @Test
+  public void circuitBreakerWithExternalFailingFallbackWithId() throws Exception {
+    assertThatThrownBy(() -> methodProtection.withExternalFailingFallbackWithIdentifier("withFailingFallback"))
+      .isInstanceOf(NumberFormatException.class)
+      .hasMessageContaining("fallbackCalled iwht id");
+  }
+
 
   @Configuration
   @Import(FailsafeAutoConfiguration.class)
@@ -70,11 +85,12 @@ public class FailsafeAspectConfigurationTest {
         throw new NumberFormatException(callArg);
       }
 
+      @FailsafeFallback(value = "withFallBack")
       public String fallback(String fallbackArg) {
         return "withFallback";
       }
 
-      @Failsafe(value = "withFallBack", fallbackMethod = "failingFallback")
+      @Failsafe(value = "failingFallback", fallbackMethod = "failingFallback")
       public String withFailingFallback(String callArg) {
         throw new NumberFormatException(callArg);
       }
@@ -82,6 +98,31 @@ public class FailsafeAspectConfigurationTest {
       public String failingFallback(String fallbackArg) {
         throw new NumberFormatException("fallbackCalled");
       }
+
+      @Failsafe(value = "externalFailingFallback")
+      public String withExternalFailingFallback(String callArg) {
+        throw new NumberFormatException(callArg);
+      }
+
+      @Failsafe(value = "externalFailingFallback", fallbackMethod = "id")
+      public String withExternalFailingFallbackWithIdentifier(String callArg) {
+        throw new NumberFormatException(callArg);
+      }
+
+    }
+    @Component
+    public static class ExternalFailsafeFallbacks {
+
+      @FailsafeFallback(value = "externalFailingFallback")
+      public String failingFallback(String fallbackArg) {
+        throw new NumberFormatException("fallbackCalled");
+      }
+
+      @FailsafeFallback(value = "externalFailingFallback", identifier = "id")
+      public String failingFallbackWithId(String fallbackArg) {
+        throw new NumberFormatException("fallbackCalled iwht id");
+      }
+
     }
   }
 }
